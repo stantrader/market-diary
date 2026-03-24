@@ -3,216 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Market Diary: Relative Strength Monitor</title>
+    <title>Market Relative Strength</title>
     <style>
         :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --text-main: #f8fafc;
-            --text-dim: #94a3b8;
-            --accent: #ff9800;
-            --up-color: #22c55e;
-            --down-color: #ef4444;
-            --grid-line: #334155;
+            --bg-color: #0f172a; --card-bg: #1e293b; --text-main: #f8fafc;
+            --text-dim: #94a3b8; --accent: #ff9800; --up-color: #22c55e;
+            --down-color: #ef4444; --grid-line: #334155;
         }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 800px;
-            background: var(--card-bg);
-            padding: 30px;
-            border-radius: 16px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        }
-
-        header {
-            border-bottom: 1px solid var(--grid-line);
-            padding-bottom: 20px;
-            margin-bottom: 30px;
-        }
-
-        h1 { margin: 0; font-size: 24px; letter-spacing: -0.5px; }
-        .update-info { font-size: 13px; color: var(--text-dim); margin-top: 8px; }
-
-        /* Стили групп */
-        .group-title {
-            color: var(--accent);
-            font-size: 18px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin: 40px 0 20px 0;
-            padding-bottom: 8px;
-            border-bottom: 2px solid var(--grid-line);
-            display: flex;
-            justify-content: space-between;
-        }
-
-        /* Сетка для строк */
-        .row {
-            display: grid;
-            grid-template-columns: 80px 1fr;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 12px;
-            padding: 4px 0;
-        }
-
-        .ticker {
-            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-            font-weight: 700;
-            font-size: 15px;
-            color: var(--text-main);
-        }
-
-        /* Контейнер гистограммы */
-        .chart-container {
-            display: flex;
-            align-items: flex-end;
-            height: 36px;
-            gap: 2px;
-            padding-left: 10px;
-            border-left: 2px solid var(--grid-line);
-        }
-
-        /* Один бар из 20 */
-        .bar {
-            flex: 1;
-            min-width: 4px;
-            background-color: var(--grid-line);
-            border-radius: 1px 1px 0 0;
-            transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-        }
-
-        /* Тултип при наведении */
-        .bar:hover {
-            filter: brightness(1.3);
-            cursor: crosshair;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 50px;
-            color: var(--text-dim);
-            font-style: italic;
-        }
-
-        footer {
-            margin-top: 50px;
-            font-size: 12px;
-            color: var(--text-dim);
-            text-align: center;
-            border-top: 1px solid var(--grid-line);
-            padding-top: 20px;
-        }
-
-        @media (max-width: 500px) {
-            .container { padding: 15px; }
-            .row { grid-template-columns: 60px 1fr; gap: 10px; }
-            .ticker { font-size: 13px; }
-        }
+        body { font-family: sans-serif; background: var(--bg-color); color: var(--text-main); padding: 20px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 900px; background: var(--card-bg); padding: 25px; border-radius: 12px; }
+        .group-title { color: var(--accent); font-size: 16px; margin: 35px 0 15px 0; border-bottom: 1px solid var(--grid-line); padding-bottom: 5px; }
+        
+        /* Увеличенная колонка под Тизер + Название */
+        .row { display: grid; grid-template-columns: 220px 1fr; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .ticker-box { display: flex; flex-direction: column; }
+        .ticker-symbol { font-weight: bold; font-size: 14px; }
+        .ticker-name { font-size: 11px; color: var(--text-dim); }
+        
+        .chart-container { display: flex; align-items: flex-end; height: 32px; gap: 2px; border-left: 2px solid var(--grid-line); padding-left: 5px; }
+        .bar { flex: 1; min-width: 4px; border-radius: 1px; transition: height 0.5s; }
+        .loading { text-align: center; padding: 40px; color: var(--text-dim); }
+        footer { margin-top: 30px; font-size: 11px; text-align: center; color: var(--text-dim); }
+        @media (max-width: 600px) { .row { grid-template-columns: 140px 1fr; } .ticker-name { display: none; } }
     </style>
 </head>
 <body>
-
 <div class="container">
-    <header>
-        <h1>Market Relative Strength</h1>
-        <div id="update-date" class="update-info">Синхронизация данных...</div>
-    </header>
-
-    <div id="dashboard">
-        <div class="loading">Загрузка последних 20 рабочих дней...</div>
-    </div>
-
-    <footer>
-        Зеленый: RS > 1.0 (Сильнее бенчмарка) | Красный: RS < 1.0 (Слабее)<br>
-        Данные обновляются автоматически в торговые дни.
-    </footer>
+    <h2 style="margin:0">Market Relative Strength</h2>
+    <div id="update-date" style="font-size:12px; color:var(--text-dim); margin-bottom:20px;">Загрузка...</div>
+    <div id="dashboard"><div class="loading">Синхронизация...</div></div>
+    <footer>Данные: Yahoo Finance | Последние 20 торговых дней</footer>
 </div>
 
 <script>
-    async function loadDashboard() {
-        const dashboard = document.getElementById('dashboard');
-        const updateDate = document.getElementById('update-date');
-
+    async function load() {
         try {
-            // Добавляем timestamp чтобы избежать кэширования браузером
-            const response = await fetch(`data.json?t=${new Date().getTime()}`);
-            if (!response.ok) throw new Error("Файл данных не найден");
-            
-            const json = await response.json();
-            updateDate.innerText = "Последнее обновление: " + json.last_update + " (UTC)";
-            
-            dashboard.innerHTML = ''; // Очищаем индикатор загрузки
+            const r = await fetch(`data.json?t=${Date.now()}`);
+            const json = await r.json();
+            document.getElementById('update-date').innerText = "Update: " + json.last_update + " UTC";
+            const db = document.getElementById('dashboard');
+            db.innerHTML = '';
 
-            // Итерируем по группам в Payload
             Object.entries(json.payload).forEach(([groupName, tickers]) => {
-                
-                // Создаем заголовок группы
-                const groupHeader = document.createElement('div');
-                groupHeader.className = 'group-title';
-                groupHeader.innerHTML = `<span>${groupName}</span>`;
-                dashboard.appendChild(groupHeader);
+                const head = document.createElement('div');
+                head.className = 'group-title';
+                head.innerText = groupName;
+                db.appendChild(head);
 
-                // Итерируем по тикерам в группе
-                Object.entries(tickers).forEach(([ticker, values]) => {
+                Object.entries(tickers).forEach(([symbol, info]) => {
                     const row = document.createElement('div');
                     row.className = 'row';
-
-                    const tickerLabel = document.createElement('div');
-                    tickerLabel.className = 'ticker';
-                    tickerLabel.innerText = ticker;
+                    
+                    // Блок названия
+                    row.innerHTML = `
+                        <div class="ticker-box">
+                            <span class="ticker-symbol">${symbol}</span>
+                            <span class="ticker-name">${info.name}</span>
+                        </div>`;
 
                     const chart = document.createElement('div');
                     chart.className = 'chart-container';
 
-                    values.forEach(val => {
-                        const bar = document.createElement('div');
-                        bar.className = 'bar';
-                        
-                        // Нормализация высоты: 1.0 = 50% высоты
-                        // Диапазон чувствительности 0.98 - 1.02 (измените если нужно)
-                        let heightPercent = ((val - 0.98) / (1.02 - 0.98)) * 100;
-                        heightPercent = Math.min(Math.max(heightPercent, 5), 100);
-
-                        bar.style.height = '2px'; // Стартовая точка для анимации
-                        bar.style.backgroundColor = val >= 1.0 ? 'var(--up-color)' : 'var(--down-color)';
-                        bar.title = `RS: ${val}`;
-
-                        chart.appendChild(bar);
-
-                        // Запуск анимации появления
-                        setTimeout(() => {
-                            bar.style.height = heightPercent + '%';
-                        }, 100);
+                    info.data.forEach(v => {
+                        const b = document.createElement('div');
+                        b.className = 'bar';
+                        let h = ((v - 0.98) / (1.02 - 0.98)) * 100;
+                        b.style.height = Math.min(Math.max(h, 5), 100) + '%';
+                        b.style.backgroundColor = v >= 1.0 ? 'var(--up-color)' : 'var(--down-color)';
+                        b.title = `RS: ${v}`;
+                        chart.appendChild(b);
                     });
-
-                    row.appendChild(tickerLabel);
                     row.appendChild(chart);
-                    dashboard.appendChild(row);
+                    db.appendChild(row);
                 });
             });
-
-        } catch (error) {
-            console.error(error);
-            dashboard.innerHTML = `<div class="loading" style="color:var(--down-color)">Ошибка: ${error.message}. Убедитесь, что GitHub Action завершил работу успешно.</div>`;
-        }
+        } catch(e) { console.error(e); }
     }
-
-    // Инициализация
-    window.onload = loadDashboard;
+    window.onload = load;
 </script>
-
 </body>
 </html>
