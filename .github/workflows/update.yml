@@ -8,13 +8,15 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Явно указываем права на запись контента
+      contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4 # Обновлено до v4 (Node 24 ready)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true # Важно для корректного push
 
       - name: Setup Python
-        uses: actions/setup-python@v5 # Обновлено до v5
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -29,5 +31,5 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add data.json
-          git commit -m "Update RS history" || exit 0
-          git push
+          git commit -m "Update RS history with new groups" || exit 0
+          git push origin main
