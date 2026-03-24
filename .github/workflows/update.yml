@@ -1,27 +1,33 @@
 name: Daily ETF Sync
 on:
   schedule:
-    - cron: '0 13 * * 1-5' # Запуск в 13:00 UTC (после открытия рынка) в будни
-  workflow_dispatch: # Кнопка для ручного запуска
+    - cron: '0 13 * * 1-5'
+  workflow_dispatch: 
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # Явно указываем права на запись контента
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4 # Обновлено до v4 (Node 24 ready)
+
       - name: Setup Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5 # Обновлено до v5
         with:
-          python-version: '3.9'
+          python-version: '3.11'
+
       - name: Install Dependencies
         run: pip install yfinance
+
       - name: Run Script
         run: python update_data.py
-      - name: Commit Data
+
+      - name: Commit and Push Data
         run: |
-          git config --global user.name 'GitHub Action'
-          git config --global user.email 'action@github.com'
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add data.json
           git commit -m "Update RS history" || exit 0
           git push
