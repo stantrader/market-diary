@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>ETF RS Monitor: 20D History</title>
+    <style>
+        body { background: #0f172a; color: #f8fafc; font-family: sans-serif; padding: 40px; }
+        .container { max-width: 800px; margin: 0 auto; background: #1e293b; padding: 25px; border-radius: 12px; }
+        .row { display: grid; grid-template-columns: 80px 1fr; align-items: center; margin-bottom: 15px; }
+        .ticker { font-weight: bold; color: #94a3b8; }
+        .chart-area { display: flex; align-items: flex-end; height: 40px; gap: 2px; border-left: 1px solid #334155; }
+        .bar { flex: 1; transition: height 0.5s; border-radius: 1px; }
+        .update-time { font-size: 12px; color: #64748b; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>ETF RS vs IVE (20 Days)</h2>
+        <div id="update-date" class="update-time">Загрузка данных...</div>
+        <div id="dashboard"></div>
+    </div>
+
+    <script>
+        async function load() {
+            const resp = await fetch('data.json');
+            const json = await resp.json();
+            document.getElementById('update-date').innerText = "Last Update: " + json.last_update;
+            
+            const dashboard = document.getElementById('dashboard');
+            Object.entries(json.payload).forEach(([ticker, values]) => {
+                const row = document.createElement('div');
+                row.className = 'row';
+                const chart = document.createElement('div');
+                chart.className = 'chart-area';
+
+                values.forEach(v => {
+                    const b = document.createElement('div');
+                    b.className = 'bar';
+                    // Расчет высоты: 1.0 RS = 50% высоты
+                    const h = Math.max(5, ((v - 0.98) / (1.02 - 0.98)) * 100);
+                    b.style.height = h + '%';
+                    b.style.backgroundColor = v >= 1.0 ? '#22c55e' : '#ef4444';
+                    b.title = v;
+                    chart.appendChild(b);
+                });
+
+                row.innerHTML = `<div class="ticker">${ticker}</div>`;
+                row.appendChild(chart);
+                dashboard.appendChild(row);
+            });
+        }
+        load();
+    </script>
+</body>
+</html>
