@@ -1,85 +1,35 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Market Relative Strength (Sorted)</title>
-    <style>
-        :root {
-            --bg-color: #0f172a; --card-bg: #1e293b; --text-main: #f8fafc;
-            --text-dim: #94a3b8; --accent: #ff9800; --up-color: #22c55e;
-            --down-color: #ef4444; --grid-line: #334155;
-        }
-        body { font-family: sans-serif; background: var(--bg-color); color: var(--text-main); padding: 20px; display: flex; justify-content: center; }
-        .container { width: 100%; max-width: 900px; background: var(--card-bg); padding: 25px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .group-title { color: var(--accent); font-size: 14px; letter-spacing: 1px; text-transform: uppercase; margin: 40px 0 15px 0; border-bottom: 1px solid var(--grid-line); padding-bottom: 8px; display: flex; justify-content: space-between; }
-        .group-title::after { content: "Sorted by Strength"; font-size: 10px; color: var(--text-dim); opacity: 0.7; }
-        
-        .row { display: grid; grid-template-columns: 200px 1fr; align-items: center; gap: 15px; margin-bottom: 10px; padding: 5px; border-radius: 6px; transition: background 0.2s; }
-        .row:hover { background: rgba(255,255,255,0.03); }
-        
-        .ticker-box { display: flex; flex-direction: column; overflow: hidden; }
-        .ticker-symbol { font-weight: bold; font-size: 14px; color: #fff; }
-        .ticker-name { font-size: 11px; color: var(--text-dim); white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
-        
-        .chart-container { display: flex; align-items: flex-end; height: 32px; gap: 2px; border-left: 2px solid var(--grid-line); padding-left: 8px; }
-        .bar { flex: 1; min-width: 4px; border-radius: 1px; transition: height 0.6s cubic-bezier(0.17, 0.67, 0.83, 0.67); }
-        .loading { text-align: center; padding: 60px; color: var(--text-dim); font-style: italic; }
-        footer { margin-top: 40px; font-size: 11px; text-align: center; color: var(--text-dim); border-top: 1px solid var(--grid-line); padding-top: 20px; }
-        
-        @media (max-width: 600px) { 
-            .row { grid-template-columns: 100px 1fr; } 
-            .ticker-name { display: none; } 
-            .container { padding: 15px; }
-        }
-    </style>
-</head>
-<body>
-<div class="container">
-    <header style="display: flex; justify-content: space-between; align-items: center;">
-        <h2 style="margin:0; font-size: 20px;">Market RS Monitor</h2>
-        <div id="update-date" style="font-size:11px; color:var(--text-dim); text-align: right;">Синхронизация...</div>
-    </header>
-    
-    <div id="dashboard"><div class="loading">Анализируем тикеры...</div></div>
-    
-    <footer>
-        <p>Лидеры (Strongest) отображаются сверху в каждой группе.</p>
-        <p>Относительная сила (RS) > 1.0 = Зеленый | RS < 1.0 = Красный</p>
-    </footer>
-</div>
-
 <script>
     async function renderSortedDashboard() {
         try {
             const r = await fetch(`data.json?t=${Date.now()}`);
             if (!r.ok) throw new Error("Данные не найдены");
-            const json = await r.json();
+            
+            // ИСПРАВЛЕНИЕ ДЛЯ SAFARI:
+            // Вместо r.json() читаем как текст и чистим от NaN
+            const rawText = await r.text();
+            const cleanText = rawText.replace(/: NaN/g, ': 1.0');
+            const json = JSON.parse(cleanText);
             
             document.getElementById('update-date').innerText = "Last Update: " + json.last_update + " (UTC)";
             const db = document.getElementById('dashboard');
             db.innerHTML = '';
 
             Object.entries(json.payload).forEach(([groupName, tickers]) => {
-                // 1. Создаем заголовок группы
                 const head = document.createElement('div');
                 head.className = 'group-title';
                 head.innerText = groupName;
                 db.appendChild(head);
 
-                // 2. Превращаем объект в массив и СОРТИРУЕМ
-                // Сортировка по сумме RS за 20 дней (чем выше сумма, тем сильнее актив)
                 const sortedTickers = Object.entries(tickers).sort((a, b) => {
-                    const sumA = a[1].data.reduce((acc, val) => acc + val, 0);
-                    const sumB = b[1].data.reduce((acc, val) => acc + val, 0);
-                    return sumB - sumA; // По убыванию
+                    // Добавляем проверку на случай пустых массивов
+                    const sumA = (a[1].data || []).reduce((acc, val) => acc + (val || 1.0), 0);
+                    const sumB = (b[1].data || []).reduce((acc, val) => acc + (val || 1.0), 0);
+                    return sumB - sumA;
                 });
 
-                // 3. Отрисовываем уже отсортированные тикеры
                 sortedTickers.forEach(([symbol, info]) => {
                     const row = document.createElement('div');
                     row.className = 'row';
-                    
                     row.innerHTML = `
                         <div class="ticker-box">
                             <span class="ticker-symbol">${symbol}</span>
@@ -89,14 +39,15 @@
                     const chart = document.createElement('div');
                     chart.className = 'chart-container';
 
-                    info.data.forEach(v => {
+                    (info.data || []).forEach(v => {
+                        const val = v || 1.0; // Защита от null
                         const b = document.createElement('div');
                         b.className = 'bar';
-                        // Масштабируем: 1.0 (паритет) будет в центре
-                        let h = ((v - 0.98) / (1.02 - 0.98)) * 100;
-                        b.style.height = '2px'; // Начало анимации
-                        b.style.backgroundColor = v >= 1.0 ? 'var(--up-color)' : 'var(--down-color)';
-                        b.title = `RS: ${v}`;
+                        
+                        let h = ((val - 0.98) / (1.02 - 0.98)) * 100;
+                        b.style.height = '2px';
+                        b.style.backgroundColor = val >= 1.0 ? 'var(--up-color)' : 'var(--down-color)';
+                        b.title = `RS: ${val}`;
                         chart.appendChild(b);
 
                         setTimeout(() => {
@@ -109,10 +60,9 @@
                 });
             });
         } catch(e) { 
+            console.error(e);
             document.getElementById('dashboard').innerHTML = `<div class="loading" style="color:var(--down-color)">Ошибка: ${e.message}</div>`;
         }
     }
     window.onload = renderSortedDashboard;
 </script>
-</body>
-</html>
