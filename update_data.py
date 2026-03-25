@@ -1,9 +1,10 @@
 import yfinance as yf
 import json
 import math
+import os
 from datetime import datetime
 
-# Словарь названий оставляем без изменений
+# Словарь имен
 NAMES_MAP = {
     'IJS': 'Small Cap Value', 'IJR': 'Small Cap Core', 'IJT': 'Small Cap Growth',
     'IJJ': 'Mid Cap Value', 'IJH': 'Mid Cap Core', 'IJK': 'Mid Cap Growth',
@@ -56,38 +57,35 @@ def get_rolling_rs():
         all_req_tickers.update(group["tickers"])
         all_req_tickers.add(group["benchmark"])
     
-    # Загружаем данные
-    data = yf.download(list(all_req_tickers), period="60d", progress=False)['Close']
-    
-    # Исправление: заполняем пропуски предыдущим значением, чтобы не было NaN при делении
-    data = data.ffill() 
-    clean_data = data.tail(21)
-    
-    output = {}
+    # Загрузка цен
+    try:
+        data = yf.download(list(all_req_tickers), period="60d", progress=False)['Close']
+        data = data.ffill() # Заполняем пустоты
+        clean_data = data.tail(21)
+    except Exception as e:
+        print(f"Ошибка загрузки yfinance: {e}")
+        return {}
 
+    output = {}
     for group_name, params in config.items():
         group_results = {}
         bench_ticker = params["benchmark"]
         
         for ticker in params["tickers"]:
-            if ticker not in clean_data.columns: continue
+            if ticker not in clean_data.columns or bench_ticker not in clean_data.columns:
+                continue
                 
             rs_values = []
             t_series = clean_data[ticker]
             b_series = clean_data[bench_ticker]
             
             for i in range(1, len(t_series)):
-                # Считаем доходность
                 t_ret = t_series.iloc[i] / t_series.iloc[i-1]
                 b_ret = b_series.iloc[i] / b_series.iloc[i-1]
                 
-                # Рассчитываем RS
                 res = t_ret / b_ret
-                
-                # ПРОВЕРКА: Если результат не число (NaN) или бесконечность, ставим 1.0
                 if math.isnan(res) or math.isinf(res):
                     res = 1.0
-                
                 rs_values.append(round(res, 4))
             
             if len(rs_values) >= 20:
@@ -95,19 +93,15 @@ def get_rolling_rs():
                     "name": NAMES_MAP.get(ticker, ticker),
                     "data": rs_values[-20:]
                 }
-            
         output[group_name] = group_results
-    
     return output
 
 if __name__ == "__main__":
+    results = get_rolling_rs()
     final_json = {
         "last_update": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "payload": get_rolling_rs()
+        "payload": results
     }
-    
-    # Сохраняем с защитой от NaN (allow_nan=False выкинет ошибку в Python, если мы что-то пропустили)
-    with open('data.json', 'w') as f:
-        json.dump(final_json, f, allow_nan=False)
-    
-    print("Обновлено без ошибок.")
+    with open('data.json', 'w', encoding='utf-8') as f:
+        json.dump(final_json, f, ensure_ascii=False, allow_nan=False)
+    print("Update successful.")
